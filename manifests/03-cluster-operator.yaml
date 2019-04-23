@@ -1,0 +1,7 @@
+apiVersion: config.openshift.io/v1
+kind: ClusterOperator
+metadata:
+  name: externaldns
+spec: {}
+status:
+ # status is set at runtime

@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+    name: openshift-externaldns
+subjects:
+  - kind: ServiceAccount
+    name: externaldns
+    namespace: openshift-externaldns
+roleRef:
+  kind: ClusterRole
+  name: openshift-externaldns
+

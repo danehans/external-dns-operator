@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: externaldns-operator
+  namespace: openshift-externaldns-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: externaldns-operator
+  template:
+    metadata:
+      labels:
+        name: externaldns-operator
+    spec:
+      dnsPolicy: Default
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+        node-role.kubernetes.io/master: ''
+      restartPolicy: Always
+      priorityClassName: system-cluster-critical
+      serviceAccountName: externaldns-operator
+      containers:
+        - name: externaldns-operator
+          image: openshift/origin-cluster-externaldns-operator:latest
+          command:
+          - externaldns-operator
+          terminationGracePeriodSeconds: 2
+          env:
+            - name: RELEASE_VERSION
+              value: "0.0.1-snapshot"
+            - name: IMAGE
+              value: openshift/origin-externaldns:v4.2
+          resources:
+            requests:
+              cpu: 10m
+      tolerations:
+      - operator: Exists # externaldns operator should be schedulable always.

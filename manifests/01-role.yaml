@@ -1,0 +1,13 @@
+# Role for the operator itself.
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: externaldns-operator
+  namespace: openshift-externaldns-operator
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - "*"
