@@ -1,10 +1,10 @@
 FROM registry.svc.ci.openshift.org/openshift/release:golang-1.10 AS builder
-WORKDIR /go/src/github.com/openshift/cluster-externaldns-operator
+WORKDIR /go/src/github.com/danehans/external-dns-operator
 COPY . .
 RUN make build
 
 FROM registry.svc.ci.openshift.org/openshift/origin-v4.0:base
-COPY --from=builder /go/src/github.com/openshift/cluster-externaldns-operator/externaldns-operator /usr/bin/
+COPY --from=builder /go/src/github.com/danehans/external-dns-operator/externaldns-operator /usr/bin/
 COPY manifests /manifests
 RUN useradd externaldns-operator
 USER externaldns-operator
