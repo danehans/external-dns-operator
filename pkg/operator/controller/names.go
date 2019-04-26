@@ -1,7 +1,7 @@
 package controller
 
 import (
-	extdnsv1a1 "github.com/danehans/external-dns-operator/pkg/apis/externaldns/v1alpha1"
+	operatorv1 "github.com/danehans/api/operator/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,18 +16,18 @@ const (
 
 // ExternalDNSDeploymentName returns the namespaced name
 // for the externaldns Deployment.
-func ExternalDNSDeploymentName(edns *extdnsv1a1.ExternalDNS) types.NamespacedName {
+func ExternalDNSDeploymentName(edns *operatorv1.ExternalDNS) types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: "openshift-externaldns",
 		Name:      "externaldns-" + edns.Name,
 	}
 }
 
-func ExternalDNSDeploymentLabel(edns *extdnsv1a1.ExternalDNS) string {
+func ExternalDNSDeploymentLabel(edns *operatorv1.ExternalDNS) string {
 	return edns.Name
 }
 
-func ExternalDNSDeploymentPodSelector(edns *extdnsv1a1.ExternalDNS) *metav1.LabelSelector {
+func ExternalDNSDeploymentPodSelector(edns *operatorv1.ExternalDNS) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			controllerDeploymentLabel: ExternalDNSDeploymentLabel(edns),

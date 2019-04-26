@@ -2,3 +2,5 @@ kind: Namespace
 apiVersion: v1
 metadata:
   name: openshift-externaldns-operator
+  annotations:
+    openshift.io/node-selector: ""

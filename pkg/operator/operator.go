@@ -9,13 +9,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 
-	extdnsv1a1 "github.com/danehans/external-dns-operator/pkg/apis/externaldns/v1alpha1"
+	operatorv1 "github.com/danehans/api/operator/v1"
 	"github.com/danehans/external-dns-operator/pkg/manifests"
 	operatorclient "github.com/danehans/external-dns-operator/pkg/operator/client"
 	operatorconfig "github.com/danehans/external-dns-operator/pkg/operator/config"
 	operatorcontroller "github.com/danehans/external-dns-operator/pkg/operator/controller"
 
 	appsv1 "k8s.io/api/apps/v1"
+
+	"k8s.io/client-go/rest"
 
 	"github.com/sirupsen/logrus"
 
@@ -29,7 +31,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	kconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -44,11 +45,12 @@ type Operator struct {
 }
 
 // New creates (but does not start) a new operator from configuration.
-func New(config operatorconfig.Config) (*Operator, error) {
-	kubeConfig, err := kconfig.GetConfig()
+func New(config operatorconfig.Config, kubeConfig *rest.Config) (*Operator, error) {
+	kubeClient, err := operatorclient.NewClient(kubeConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kube config: %v", err)
+		return nil, fmt.Errorf("failed to create kube client: %v", err)
 	}
+
 	scheme := operatorclient.GetScheme()
 	operatorManager, err := manager.New(kubeConfig, manager.Options{
 		Namespace: config.Namespace,
@@ -114,11 +116,6 @@ func New(config operatorconfig.Config) (*Operator, error) {
 		}
 	}
 
-	kubeClient, err := operatorclient.NewClient(kubeConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kube client: %v", err)
-	}
-
 	return &Operator{
 		manager: operatorManager,
 		caches:  []cache.Cache{operandCache},
@@ -160,7 +157,7 @@ func (o *Operator) Start(stop <-chan struct{}) error {
 // ensureDefaultExternalDNS creates the default externaldns
 // if it doesn't already exist.
 func (o *Operator) ensureDefaultExternalDNS() error {
-	edns := &extdnsv1a1.ExternalDNS{
+	edns := &operatorv1.ExternalDNS{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorcontroller.DefaultExternalDNSController,
 			Namespace: o.namespace,

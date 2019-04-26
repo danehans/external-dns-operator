@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"github.com/openshift/cluster-ingress-operator/pkg/operator/controller"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/danehans/external-dns-operator/pkg/operator"
 	operatorclient "github.com/danehans/external-dns-operator/pkg/operator/client"
 	operatorconfig "github.com/danehans/external-dns-operator/pkg/operator/config"
+	"github.com/danehans/external-dns-operator/pkg/operator/controller"
 
 	configv1 "github.com/openshift/api/config/v1"
 
@@ -67,7 +67,7 @@ func main() {
 	}
 
 	// Set up and start the operator.
-	op, err := operator.New(operatorConfig)
+	op, err := operator.New(operatorConfig, kubeConfig)
 	if err != nil {
 		logrus.Fatalf("failed to create operator: %v", err)
 	}

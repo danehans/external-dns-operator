@@ -7,7 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	extdnsv1a1 "github.com/danehans/external-dns-operator/pkg/apis/externaldns/v1alpha1"
+	operatorv1 "github.com/danehans/api/operator/v1"
 	"github.com/danehans/external-dns-operator/pkg/manifests"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -23,7 +23,7 @@ import (
 
 // ensureExternalDNSDeployment ensures an ExternalDNS deployment exists for the
 // given externalDNS resource.
-func (r *reconciler) ensureExternalDNSDeployment(eds *extdnsv1a1.ExternalDNS, dnsConfig *configv1.DNS,
+func (r *reconciler) ensureExternalDNSDeployment(eds *operatorv1.ExternalDNS, dnsConfig *configv1.DNS,
 	infraConfig *configv1.Infrastructure) error {
 	desired := desiredExternalDNSDeployment(eds, r.Config.ExternalDNSImage, dnsConfig, infraConfig)
 	current, err := r.currentExternalDNSDeployment(eds)
@@ -45,7 +45,7 @@ func (r *reconciler) ensureExternalDNSDeployment(eds *extdnsv1a1.ExternalDNS, dn
 
 // ensureExternalDNSDeploymentDeleted ensures that any Deployment
 // resources associated with the externaldns are deleted.
-func (r *reconciler) ensureExternalDNSDeploymentDeleted(eds *extdnsv1a1.ExternalDNS) error {
+func (r *reconciler) ensureExternalDNSDeploymentDeleted(eds *operatorv1.ExternalDNS) error {
 	deployment := &appsv1.Deployment{}
 	name := ExternalDNSDeploymentName(eds)
 	deployment.Name = name.Name
@@ -59,7 +59,7 @@ func (r *reconciler) ensureExternalDNSDeploymentDeleted(eds *extdnsv1a1.External
 }
 
 // desiredExternalDNSDeployment returns the desired ExternalDNS deployment.
-func desiredExternalDNSDeployment(edns *extdnsv1a1.ExternalDNS, ExternalDNSImage string,
+func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage string,
 	dnsConfig *configv1.DNS, infraConfig *configv1.Infrastructure) *appsv1.Deployment {
 	deployment := manifests.ExternalDNSDeployment()
 	name := ExternalDNSDeploymentName(edns)
@@ -124,8 +124,8 @@ func desiredExternalDNSDeployment(edns *extdnsv1a1.ExternalDNS, ExternalDNSImage
 				src)
 		}
 	} else {
-		svc := src + string(extdnsv1a1.ServiceType)
-		ing := src + string(extdnsv1a1.IngressType)
+		svc := src + string(operatorv1.ServiceType)
+		ing := src + string(operatorv1.IngressType)
 		deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
 			svc, ing)
 	}
@@ -140,7 +140,7 @@ func desiredExternalDNSDeployment(edns *extdnsv1a1.ExternalDNS, ExternalDNSImage
 }
 
 // currentExternalDNSDeployment returns the current ExternalDNS deployment.
-func (r *reconciler) currentExternalDNSDeployment(edns *extdnsv1a1.ExternalDNS) (*appsv1.Deployment, error) {
+func (r *reconciler) currentExternalDNSDeployment(edns *operatorv1.ExternalDNS) (*appsv1.Deployment, error) {
 	deployment := &appsv1.Deployment{}
 	if err := r.client.Get(context.TODO(), ExternalDNSDeploymentName(edns), deployment); err != nil {
 		if errors.IsNotFound(err) {

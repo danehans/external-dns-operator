@@ -7,14 +7,14 @@ rules:
 - apiGroups:
   - operator.openshift.io
   resources:
-  - externaldnss
+  - externaldnses
   verbs:
   - "*"
 
 - apiGroups:
   - operator.openshift.io
   resources:
-  - externaldnss/status
+  - externaldnses/status
   verbs:
   - update
 

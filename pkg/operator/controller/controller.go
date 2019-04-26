@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	extdnsv1a1 "github.com/danehans/external-dns-operator/pkg/apis/externaldns/v1alpha1"
+	operatorv1 "github.com/danehans/api/operator/v1"
 	configv1 "github.com/openshift/api/config/v1"
 
 	"github.com/danehans/external-dns-operator/pkg/manifests"
@@ -34,6 +34,9 @@ const (
 	// ExternalDNSControllerFinalizer is applied to an ExternalDNS before being considered
 	// for processing. This ensures the operator has a chance to handle all states.
 	ExternalDNSControllerFinalizer = "externaldns.operator.openshift.io/externaldns-controller"
+
+	// Unknown release version
+	UnknownReleaseVersionName = "unknown"
 )
 
 // New creates the operator controller from configuration. This is the
@@ -55,7 +58,7 @@ func New(mgr manager.Manager, config Config) (controller.Controller, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := c.Watch(&source.Kind{Type: &extdnsv1a1.ExternalDNS{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err := c.Watch(&source.Kind{Type: &operatorv1.ExternalDNS{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		return nil, err
 	}
 
@@ -96,7 +99,7 @@ func (r *reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 		return result, nil
 	}
 	// Get the current externaldns state.
-	edns := &extdnsv1a1.ExternalDNS{}
+	edns := &operatorv1.ExternalDNS{}
 	if err := r.client.Get(context.TODO(), request.NamespacedName, edns); err != nil {
 		if errors.IsNotFound(err) {
 			// This means the externaldns was already deleted/finalized and there
@@ -161,7 +164,7 @@ func (r *reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 
 // ensureExternalDNSNamespace ensures all the necessary scaffolding exists
 // for externaldns generally, including a namespace and all RBAC setup.
-func (r *reconciler) ensureExternalDNSNamespace(edns *extdnsv1a1.ExternalDNS) error {
+func (r *reconciler) ensureExternalDNSNamespace(edns *operatorv1.ExternalDNS) error {
 	ns := manifests.ExternalDNSNamespace()
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: ns.Name}, ns); err != nil {
 		if !errors.IsNotFound(err) {
@@ -211,7 +214,7 @@ func (r *reconciler) ensureExternalDNSNamespace(edns *extdnsv1a1.ExternalDNS) er
 
 // enforceExternalDNSFinalizer adds ExternalDNSControllerFinalizer to externaldns
 // if it doesn't exist.
-func (r *reconciler) enforceExternalDNSFinalizer(edns *extdnsv1a1.ExternalDNS) error {
+func (r *reconciler) enforceExternalDNSFinalizer(edns *operatorv1.ExternalDNS) error {
 	if !slice.ContainsString(edns.Finalizers, ExternalDNSControllerFinalizer) {
 		edns.Finalizers = append(edns.Finalizers, ExternalDNSControllerFinalizer)
 		if err := r.client.Update(context.TODO(), edns); err != nil {
@@ -224,7 +227,7 @@ func (r *reconciler) enforceExternalDNSFinalizer(edns *extdnsv1a1.ExternalDNS) e
 
 // removeExternalDNSFinalizer removes ExternalDNSControllerFinalizer from externaldns
 // if it exists.
-func (r *reconciler) removeExternalDNSFinalizer(edns *extdnsv1a1.ExternalDNS) error {
+func (r *reconciler) removeExternalDNSFinalizer(edns *operatorv1.ExternalDNS) error {
 	if slice.ContainsString(edns.Finalizers, ExternalDNSControllerFinalizer) {
 		updated := edns.DeepCopy()
 		updated.Finalizers = slice.RemoveString(updated.Finalizers, ExternalDNSControllerFinalizer)
@@ -236,7 +239,7 @@ func (r *reconciler) removeExternalDNSFinalizer(edns *extdnsv1a1.ExternalDNS) er
 }
 
 // ensureExternalDNSDeleted tries to delete externaldns dependent resources.
-func (r *reconciler) ensureExternalDNSDeleted(edns *extdnsv1a1.ExternalDNS) error {
+func (r *reconciler) ensureExternalDNSDeleted(edns *operatorv1.ExternalDNS) error {
 	if err := r.ensureExternalDNSDeploymentDeleted(edns); err != nil {
 		return fmt.Errorf("failed to delete deployment for externaldns %s: %v", edns.Name, err)
 	}
@@ -249,7 +252,7 @@ func (r *reconciler) ensureExternalDNSDeleted(edns *extdnsv1a1.ExternalDNS) erro
 
 // ensureExternalDNS ensures all dependant externaldns resources exist
 // for a given externaldns.
-func (r *reconciler) ensureExternalDNS(edns *extdnsv1a1.ExternalDNS, dnsConfig *configv1.DNS,
+func (r *reconciler) ensureExternalDNS(edns *operatorv1.ExternalDNS, dnsConfig *configv1.DNS,
 	infraConfig *configv1.Infrastructure) error {
 	if err := r.ensureExternalDNSDeployment(edns, dnsConfig, infraConfig); err != nil {
 		return fmt.Errorf("failed to ensure deployment for externaldns %s: %v", edns.Name, err)

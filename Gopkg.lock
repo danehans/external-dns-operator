@@ -10,14 +10,6 @@
   version = "v0.37.4"
 
 [[projects]]
-  digest = "1:1929b21a34400d463a99336f8e2908d2a154dc525c52411a8d99bb519942dc4c"
-  name = "github.com/apparentlymart/go-cidr"
-  packages = ["cidr"]
-  pruneopts = "NUT"
-  revision = "b1115bf8e14a60131a196f908223e4506b0ddc35"
-  version = "v1.0.0"
-
-[[projects]]
   digest = "1:680b63a131506e668818d630d3ca36123ff290afa0afc9f4be21940adca3f27d"
   name = "github.com/appscode/jsonpatch"
   packages = ["."]
@@ -32,6 +24,13 @@
   pruneopts = "NUT"
   revision = "4b2b341e8d7715fae06375aa633dbb6e91b3fb46"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:54a688f74149aee700383de1cdbbaa15ff0098dfdd81c5157fb5e3b28032b21f"
+  name = "github.com/danehans/api"
+  packages = ["operator/v1"]
+  pruneopts = "NUT"
+  revision = "353ce8acf4bbe85001aedbaa5891334483995150"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
@@ -259,31 +258,11 @@
   version = "1.0.1"
 
 [[projects]]
-  digest = "1:b2806fcceb676447bfa364d265f68b3606568ea782b4bf56dcec2d3ffe101d8e"
+  digest = "1:9308fe671d711a45d47c042ce8c8f22d4eb9eaafe7e8276fc65c55c5c63f5df0"
   name = "github.com/openshift/api"
-  packages = [
-    "config/v1",
-    "operator/v1",
-    "route/v1",
-  ]
+  packages = ["config/v1"]
   pruneopts = "NUT"
   revision = "d2f01e7b77a6fc78b328db20285423838419fef7"
-
-[[projects]]
-  branch = "master"
-  digest = "1:1b816e0bd1928c41d3a678735f8b5bc7c3e13185966751a884e76c91d8b9b6aa"
-  name = "github.com/openshift/cluster-dns-operator"
-  packages = ["pkg/manifests"]
-  pruneopts = "NUT"
-  revision = "ea3c1456a09d948bfea9c9cf161bff424cde20c5"
-
-[[projects]]
-  branch = "master"
-  digest = "1:e0420c9b6c09c337f176ed441ad7b608b5bbe8df49ed1602e9f0fa8ed28d4529"
-  name = "github.com/openshift/cluster-ingress-operator"
-  packages = ["pkg/manifests"]
-  pruneopts = "NUT"
-  revision = "6ef4ce05e83b13bd0eaf292c8f5452a68774c4d9"
 
 [[projects]]
   digest = "1:cd4753a75496d18b5c4d33cf60c3eee12331c603e56d99808b808e5da4b24f68"
@@ -594,7 +573,7 @@
   version = "kubernetes-1.13.1"
 
 [[projects]]
-  digest = "1:c432be6f1d432a4dc9c85430919557e371c223865de8b0d938512d35557399af"
+  digest = "1:25007e5aca71298609762b6e642a4b7a9643eaf4657ed5dcd2616bb4db47103e"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/errors",
@@ -628,7 +607,6 @@
     "pkg/util/mergepatch",
     "pkg/util/naming",
     "pkg/util/net",
-    "pkg/util/rand",
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/strategicpatch",
@@ -645,14 +623,6 @@
   pruneopts = "NUT"
   revision = "86fb29eff6288413d76bd8506874fddd9fccdff0"
   version = "kubernetes-1.13.4"
-
-[[projects]]
-  branch = "master"
-  digest = "1:f4399da66c191adee58287b4069dbd3f040c4b42c7050e426b9b906c263c65b6"
-  name = "k8s.io/apiserver"
-  packages = ["pkg/storage/names"]
-  pruneopts = "NUT"
-  revision = "0a718f081a3aa58909735ab6d02592edf7174f34"
 
 [[projects]]
   digest = "1:1d11ec63927aa7ed344208ce493db81587f8b3404beda1afaffc57abd342ea4c"
@@ -761,7 +731,7 @@
   revision = "6b3d3b2d5666c5912bab8b7bf26bf50f75a8f887"
 
 [[projects]]
-  digest = "1:6b1fb28a210734343e4ffec93bc09044f170f6b986cee65a371ece75e717846b"
+  digest = "1:5b1807239d073c22f3a4b0df451d8b39330ddbbf5170f48e439d8f04dc60ab18"
   name = "sigs.k8s.io/controller-runtime"
   packages = [
     "pkg/cache",
@@ -787,7 +757,6 @@
     "pkg/recorder",
     "pkg/runtime/inject",
     "pkg/runtime/signals",
-    "pkg/scheme",
     "pkg/source",
     "pkg/source/internal",
     "pkg/webhook",
@@ -824,14 +793,11 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/apparentlymart/go-cidr/cidr",
+    "github.com/danehans/api/operator/v1",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/kevinburke/go-bindata",
     "github.com/openshift/api/config/v1",
-    "github.com/openshift/api/operator/v1",
-    "github.com/openshift/cluster-dns-operator/pkg/manifests",
-    "github.com/openshift/cluster-ingress-operator/pkg/manifests",
     "github.com/openshift/library-go/cmd/crd-schema-gen",
     "github.com/sirupsen/logrus",
     "k8s.io/api/apps/v1",
@@ -840,7 +806,6 @@
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/runtime",
-    "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/errors",
     "k8s.io/apimachinery/pkg/util/wait",
@@ -857,7 +822,6 @@
     "sigs.k8s.io/controller-runtime/pkg/manager",
     "sigs.k8s.io/controller-runtime/pkg/reconcile",
     "sigs.k8s.io/controller-runtime/pkg/runtime/signals",
-    "sigs.k8s.io/controller-runtime/pkg/scheme",
     "sigs.k8s.io/controller-runtime/pkg/source",
   ]
   solver-name = "gps-cdcl"

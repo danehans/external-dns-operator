@@ -3,8 +3,8 @@ package client
 import (
 	"fmt"
 
+	operatorv1 "github.com/danehans/api/operator/v1"
 	configv1 "github.com/openshift/api/config/v1"
-	operatorv1 "github.com/openshift/api/operator/v1"
 
 	kscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"

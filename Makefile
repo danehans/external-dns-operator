@@ -13,27 +13,19 @@ TEST ?= .*
 build:
 	$(GO_BUILD_RECIPE)
 
-.PHONY: buildconfig
-buildconfig:
-	hack/create-buildconfig.sh
-
-.PHONY: cluster-build
-cluster-build:
-	hack/start-build.sh
-
 .PHONY: generate
 generate: crd
 	hack/update-generated-bindata.sh
 
-# Generate ExternalDNS CRD from vendored API spec.
+# Generate IngressController CRD from vendored API spec.
 .PHONY: crd
 crd:
-	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --apis-dir vendor/github.com/openshift/api
+	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --apis-dir vendor/github.com/danehans/api
 
-# Do not write the ExternalDNS CRD, only compare and return (code 1 if dirty).
+# Do not write the IngressController CRD, only compare and return (code 1 if dirty).
 .PHONY: verify-crd
 verify-crd:
-	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --apis-dir vendor/github.com/openshift/api --verify-only
+	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --apis-dir vendor/github.com/danehans/api --verify-only
 
 .PHONY: test
 test: verify

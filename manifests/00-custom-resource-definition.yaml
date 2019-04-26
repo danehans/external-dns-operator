@@ -4,12 +4,12 @@ metadata:
   creationTimestamp: null
   labels:
     controller-tools.k8s.io: "1.0"
-  name: externaldnss.operator.openshift.io
+  name: externaldnses.operator.openshift.io
 spec:
   group: operator.openshift.io
   names:
     kind: ExternalDNS
-    plural: externaldnss
+    plural: externaldnses
   scope: Namespaced
   validation:
     openAPIV3Schema:
@@ -27,11 +27,12 @@ spec:
         metadata:
           type: object
         spec:
+          description: spec is the specification of the desired behavior of the ExternalDNS.
           properties:
             namespace:
-              description: namespace limits the source of endpoints for creating external
-                DNS resource records to the specified namespace. If empty, defaults
-                to the default namespace (none).
+              description: namespace limits the source of endpoints for creating ExternalDNS
+                resource records to the specified namespace. If empty, defaults to
+                the default namespace (none).
               type: string
             privateZoneFilters:
               description: privateZoneFilters is one or more Private DNS zones to
@@ -86,6 +87,7 @@ spec:
               type: array
           type: object
         status:
+          description: status is the most recently observed status of the ExternalDNS.
           properties:
             baseDomain:
               description: baseDomain is the domain where DNS resource records are
@@ -107,18 +109,12 @@ spec:
                     type: string
                   type:
                     type: string
-                required:
-                - type
-                - status
                 type: object
               type: array
             provider:
               description: provider is the DNS provider where DNS records will be
                 created. Taken from infrastructure.config.openshift.io/v1
               type: string
-          required:
-          - provider
-          - baseDomain
           type: object
   version: v1beta1
 status:
