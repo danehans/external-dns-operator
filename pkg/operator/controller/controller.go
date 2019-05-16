@@ -123,41 +123,38 @@ func (r *reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 			errs = append(errs, fmt.Errorf("failed to get infrastructure 'cluster': %v", err))
 			infraConfig = nil
 		}
-
-		// For now, if the cluster configs are unavailable, defer reconciliation
-		// because weaving conditionals everywhere to deal with various nil states
-		// is too complicated. It doesn't seem too risky to rely on the invariant
-		// of the cluster config being available.
 		if dnsConfig != nil && infraConfig != nil {
 			// Ensure we have all the necessary scaffolding on which to place externaldns instances.
 			if err := r.ensureExternalDNSNamespace(edns); err != nil {
 				errs = append(errs, fmt.Errorf("failed to ensure externaldns namespace: %v", err))
 			}
-
-			if edns.DeletionTimestamp != nil {
-				// Handle deletion.
-				if err := r.ensureExternalDNSDeleted(edns); err != nil {
-					errs = append(errs, fmt.Errorf("failed to ensure deletion for externaldns %s: %v", edns.Name, err))
-				}
-			} else if err := r.enforceExternalDNSFinalizer(edns); err != nil {
-				errs = append(errs, fmt.Errorf("failed to enforce finalizer for externaldns %s: %v", edns.Name, err))
-			} else {
-				// Handle everything else.
-				if err := r.ensureExternalDNS(edns, dnsConfig, infraConfig); err != nil {
-					errs = append(errs, fmt.Errorf("failed to ensure dns %s: %v", edns.Name, err))
+			if err := r.enforceEffectiveBaseDomain(edns); err != nil {
+				errs = append(errs, fmt.Errorf("failed to enforce the effective externaldns baseDomain for %s: %v", edns.Name, err))
+			} else if IsStatusBaseDomainSet(edns) {
+				if err := r.enforceEffectiveProvider(edns, infraConfig); err != nil {
+					errs = append(errs, fmt.Errorf("failed to enforce the effective provider for externaldns %s: %v", edns.Name, err))
+				} else if edns.DeletionTimestamp != nil {
+					// Handle deletion.
+					if err := r.ensureExternalDNSDeleted(edns); err != nil {
+						errs = append(errs, fmt.Errorf("failed to ensure deletion for externaldns %s: %v", edns.Name, err))
+					}
+				} else if err := r.enforceExternalDNSFinalizer(edns); err != nil {
+					errs = append(errs, fmt.Errorf("failed to enforce finalizer for externaldns %s: %v", edns.Name, err))
+				} else {
+					// Handle everything else.
+					if err := r.ensureExternalDNS(edns, dnsConfig, infraConfig); err != nil {
+						errs = append(errs, fmt.Errorf("failed to ensure dns %s: %v", edns.Name, err))
+					}
 				}
 			}
 		}
 	}
 
-	// TODO: Should this be another controller?
-	//if err := r.syncOperatorStatus(); err != nil {
-	//	errs = append(errs, fmt.Errorf("failed to sync operator status: %v", err))
-	//}
-
 	// Log in case of errors as the controller's logs get eaten.
 	if len(errs) > 0 {
 		logrus.Errorf("failed to reconcile request %s: %v", request, utilerrors.NewAggregate(errs))
+	} else {
+		logrus.Infof("successfully reconciled request: %s", request)
 	}
 	return result, utilerrors.NewAggregate(errs)
 }
@@ -210,6 +207,118 @@ func (r *reconciler) ensureExternalDNSNamespace(edns *operatorv1.ExternalDNS) er
 	}
 
 	return nil
+}
+
+// enforceEffectiveBaseDomain determines the effective baseDomain for the
+// given externaldns and and publishes it to the externaldns's status.
+func (r *reconciler) enforceEffectiveBaseDomain(edns *operatorv1.ExternalDNS) error {
+	// An externaldns' baseDomain is immutable, so if has
+	// been published to status, continue using it.
+	if IsStatusBaseDomainSet(edns) {
+		return nil
+	}
+
+	updated := edns.DeepCopy()
+	var domain string
+	switch {
+	case len(edns.Spec.BaseDomain) > 0:
+		domain = edns.Spec.BaseDomain
+	default:
+		domain = edns.Spec.BaseDomain
+	}
+	unique, err := r.isBaseDomainUnique(domain)
+	if err != nil {
+		return err
+	}
+	if !unique {
+		logrus.Infof("baseDomain not unique, not setting ExternalDNS .status.baseDomain for %s/%s", edns.Namespace, edns.Name)
+	} else {
+		updated.Status.BaseDomain = domain
+	}
+
+	if err := r.client.Status().Update(context.TODO(), updated); err != nil {
+		return fmt.Errorf("failed to update status of ExternalDNS %s/%s: %v", updated.Namespace, updated.Name, err)
+	}
+
+	return nil
+}
+
+// isBaseDomainUnique compares baseDomain with spec.domain of all
+// externalDNSes and returns false if a conflict exists or an error
+// if the externalDNS list operation returns an error.
+func (r *reconciler) isBaseDomainUnique(domain string) (bool, error) {
+	dnses := &operatorv1.ExternalDNSList{}
+	if err := r.client.List(context.TODO(), dnses, kclient.InNamespace(r.Namespace)); err != nil {
+		return false, fmt.Errorf("failed to list externaldnses: %v", err)
+	}
+
+	// Compare domain with all externaldnses for a conflict.
+	for _, dns := range dnses.Items {
+		if domain == dns.Status.BaseDomain {
+			logrus.Infof("baseDomain %q conflicts with existing ExternalDNS: %s/%s", domain, dns.Namespace, dns.Name)
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// IsStatusBaseDomainSet checks whether status.baseDomain of edns is set.
+func IsStatusBaseDomainSet(edns *operatorv1.ExternalDNS) bool {
+	if len(edns.Status.BaseDomain) == 0 {
+		return false
+	}
+	return true
+}
+
+// providerTypeForInfra returns the appropriate provider
+// type for the given infraConfig.
+func providerTypeForInfra(infraConfig *configv1.Infrastructure) *operatorv1.ProviderType {
+	var provider operatorv1.ProviderType
+
+	switch infraConfig.Status.Platform {
+	case configv1.AWSPlatformType:
+		provider = operatorv1.AWSProvider
+	case configv1.AzurePlatformType:
+		provider = operatorv1.AzureProvider
+	case configv1.GCPPlatformType:
+		provider = operatorv1.GoogleProvider
+	}
+
+	return &provider
+}
+
+// enforceEffectiveProvider uses the infrastructure config to
+// determine the appropriate provider configuration for the
+// given externaldns and publishes it to the externaldns' status.
+func (r *reconciler) enforceEffectiveProvider(edns *operatorv1.ExternalDNS, infraConfig *configv1.Infrastructure) error {
+	// The externaldns' provider is immutable, so
+	// if we have previously published a strategy in status, we must
+	// continue to use that strategy it.
+	if IsStatusProviderSet(edns) {
+		return nil
+	}
+
+	updated := edns.DeepCopy()
+	switch {
+	case edns.Spec.Provider.Type != nil:
+		updated.Status.ProviderType = edns.Spec.Provider.Type
+	default:
+		updated.Status.ProviderType = providerTypeForInfra(infraConfig)
+	}
+	if err := r.client.Status().Update(context.TODO(), updated); err != nil {
+		return fmt.Errorf("failed to update status of externaldns %s/%s: %v", updated.Namespace, updated.Name, err)
+	}
+
+	return nil
+}
+
+// IsStatusProviderSet checks whether status.provider of edns is set.
+func IsStatusProviderSet(edns *operatorv1.ExternalDNS) bool {
+	if edns.Status.ProviderType != nil {
+		return true
+	}
+	return false
 }
 
 // enforceExternalDNSFinalizer adds ExternalDNSControllerFinalizer to externaldns

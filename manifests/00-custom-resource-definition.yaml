@@ -29,59 +29,60 @@ spec:
         spec:
           description: spec is the specification of the desired behavior of the ExternalDNS.
           properties:
+            baseDomain:
+              description: baseDomain is the base domain used for creating resource
+                records. For example, given the base domain `openshift.example.com`,
+                an API server record may be created for `api.openshift.example.com`.  baseDomain
+                must be unique among all ExternalDNSes and cannot be updated.  If
+                empty, defaults to dns.config/cluster .spec.baseDomain.
+              type: string
             namespace:
               description: namespace limits the source of endpoints for creating ExternalDNS
-                resource records to the specified namespace. If empty, defaults to
-                the default namespace (none).
+                resource records to the specified namespace.  If empty, defaults to
+                all namespaces.
               type: string
-            privateZoneFilters:
-              description: privateZoneFilters is one or more Private DNS zones to
-                filter when managing external DNS resource records. If empty, defaults
-                to spec.publicZone from dns.config/cluster.
-              items:
-                properties:
-                  id:
-                    description: 'id is the identifier that can be used to find the
-                      DNS hosted zone.  on AWS zone can be fetched using `ID` as id
-                      in [1] on Azure zone can be fetched using `ID` as a pre-determined
-                      name in [2], on GCP zone can be fetched using `ID` as a pre-determined
-                      name in [3].  [1]: https://docs.aws.amazon.com/cli/latest/reference/route53/get-hosted-zone.html#options
-                      [2]: https://docs.microsoft.com/en-us/cli/azure/network/dns/zone?view=azure-cli-latest#az-network-dns-zone-show
-                      [3]: https://cloud.google.com/dns/docs/reference/v1/managedZones/get'
+            provider:
+              description: provider is the specification of the DNS provider where
+                DNS records will be created.
+              properties:
+                args:
+                  description: args is the list of configuration arguments used for
+                    the provider.  If empty, no arguments are used for the provider.
+                  items:
                     type: string
-                  tags:
-                    description: 'tags can be used to query the DNS hosted zone.  on
-                      AWS, resourcegroupstaggingapi [1] can be used to fetch a zone
-                      using `Tags` as tag-filters,  [1]: https://docs.aws.amazon.com/cli/latest/reference/resourcegroupstaggingapi/get-resources.html#options'
+                  type: array
+                type:
+                  description: type is the ExternalDNS provider used for creating
+                    resource records.  If empty, defaults to infrastructure.config/cluster
+                    .status.platform.
+                  type: string
+                zoneIDFilter:
+                  description: zoneIDFilter is a comma separated list of target DNS
+                    zone IDs to include for managing external DNS resource records.  If
+                    empty, defaults to dns.config/cluster .spec.privateZone.
+                  items:
+                    properties:
+                      id:
+                        description: 'id is the identifier that can be used to find
+                          the DNS hosted zone.  on AWS zone can be fetched using `ID`
+                          as id in [1] on Azure zone can be fetched using `ID` as
+                          a pre-determined name in [2], on GCP zone can be fetched
+                          using `ID` as a pre-determined name in [3].  [1]: https://docs.aws.amazon.com/cli/latest/reference/route53/get-hosted-zone.html#options
+                          [2]: https://docs.microsoft.com/en-us/cli/azure/network/dns/zone?view=azure-cli-latest#az-network-dns-zone-show
+                          [3]: https://cloud.google.com/dns/docs/reference/v1/managedZones/get'
+                        type: string
+                      tags:
+                        description: 'tags can be used to query the DNS hosted zone.  on
+                          AWS, resourcegroupstaggingapi [1] can be used to fetch a
+                          zone using `Tags` as tag-filters,  [1]: https://docs.aws.amazon.com/cli/latest/reference/resourcegroupstaggingapi/get-resources.html#options'
+                        type: object
                     type: object
-                type: object
-              type: array
-            publicZoneFilters:
-              description: publicZoneFilters is one or more Public DNS zones to filter
-                when managing external DNS resource records. If empty, defaults to
-                spec.privateZone from dns.config/cluster.
-              items:
-                properties:
-                  id:
-                    description: 'id is the identifier that can be used to find the
-                      DNS hosted zone.  on AWS zone can be fetched using `ID` as id
-                      in [1] on Azure zone can be fetched using `ID` as a pre-determined
-                      name in [2], on GCP zone can be fetched using `ID` as a pre-determined
-                      name in [3].  [1]: https://docs.aws.amazon.com/cli/latest/reference/route53/get-hosted-zone.html#options
-                      [2]: https://docs.microsoft.com/en-us/cli/azure/network/dns/zone?view=azure-cli-latest#az-network-dns-zone-show
-                      [3]: https://cloud.google.com/dns/docs/reference/v1/managedZones/get'
-                    type: string
-                  tags:
-                    description: 'tags can be used to query the DNS hosted zone.  on
-                      AWS, resourcegroupstaggingapi [1] can be used to fetch a zone
-                      using `Tags` as tag-filters,  [1]: https://docs.aws.amazon.com/cli/latest/reference/resourcegroupstaggingapi/get-resources.html#options'
-                    type: object
-                type: object
-              type: array
+                  type: array
+              type: object
             sources:
               description: sources limits resource types that are queried for endpoints
-                of the given namespace. If empty, defaults to Kubernetes service and
-                ingress source types.
+                of the given namespace.  If empty, defaults to a Kubernetes Service
+                resource type.
               items:
                 type: string
               type: array
@@ -90,33 +91,13 @@ spec:
           description: status is the most recently observed status of the ExternalDNS.
           properties:
             baseDomain:
-              description: baseDomain is the domain where DNS resource records are
-                created. All records managed by ExternalDNS are sub-domains of this
-                base.  For example, given the base domain `openshift.example.com`,
-                an API server DNS record may be created for `api.openshift.example.com`.
+              description: baseDomain is the baseDomain in use.
               type: string
-            conditions:
-              items:
-                properties:
-                  lastTransitionTime:
-                    format: date-time
-                    type: string
-                  message:
-                    type: string
-                  reason:
-                    type: string
-                  status:
-                    type: string
-                  type:
-                    type: string
-                type: object
-              type: array
             provider:
-              description: provider is the DNS provider where DNS records will be
-                created. Taken from infrastructure.config.openshift.io/v1
+              description: providerType is the type of ExternalDNS provider in use.
               type: string
           type: object
-  version: v1beta1
+  version: v1
 status:
   acceptedNames:
     kind: ""

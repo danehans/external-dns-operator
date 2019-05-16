@@ -133,8 +133,11 @@ func New(config operatorconfig.Config, kubeConfig *rest.Config) (*Operator, erro
 func (o *Operator) Start(stop <-chan struct{}) error {
 	// Periodically ensure the default externaldns controller exists.
 	go wait.Until(func() {
-		if err := o.ensureDefaultExternalDNS(); err != nil {
-			logrus.Errorf("failed to ensure default Externaldns: %v", err)
+		if err := o.ensureDefaultPrivateExternalDNS(); err != nil {
+			logrus.Errorf("failed to ensure default private zone externaldns: %v", err)
+		}
+		if err := o.ensureDefaultPublicExternalDNS(); err != nil {
+			logrus.Errorf("failed to ensure default public zone externaldns: %v", err)
 		}
 	}, 1*time.Minute, stop)
 
@@ -154,23 +157,44 @@ func (o *Operator) Start(stop <-chan struct{}) error {
 	}
 }
 
-// ensureDefaultExternalDNS creates the default externaldns
-// if it doesn't already exist.
-func (o *Operator) ensureDefaultExternalDNS() error {
-	edns := &operatorv1.ExternalDNS{
+// ensureDefaultPrivateExternalDNS creates the default private zone externaldns
+// if it does not already exist.
+func (o *Operator) ensureDefaultPrivateExternalDNS() error {
+	private := &operatorv1.ExternalDNS{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorcontroller.DefaultExternalDNSController,
+			Name:      operatorcontroller.DefaultExternalDNSController + "-private",
 			Namespace: o.namespace,
 		},
 	}
-	if err := o.client.Get(context.TODO(), types.NamespacedName{Namespace: edns.Namespace, Name: edns.Name}, edns); err != nil {
+	if err := o.client.Get(context.TODO(), types.NamespacedName{Namespace: private.Namespace, Name: private.Name}, private); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
-		if err := o.client.Create(context.TODO(), edns); err != nil {
-			return fmt.Errorf("failed to create default externaldns: %v", err)
+		if err := o.client.Create(context.TODO(), private); err != nil {
+			return fmt.Errorf("failed to create default private zone externaldns: %v", err)
 		}
-		logrus.Infof("created default externaldns: %s", edns.Name)
+		logrus.Infof("created default private zone externaldns: %s", private.Name)
+	}
+	return nil
+}
+
+// ensureDefaultPublicExternalDNS creates the default public zone externaldns
+// if it does not already exist.
+func (o *Operator) ensureDefaultPublicExternalDNS() error {
+	public := &operatorv1.ExternalDNS{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorcontroller.DefaultExternalDNSController + "-public",
+			Namespace: o.namespace,
+		},
+	}
+	if err := o.client.Get(context.TODO(), types.NamespacedName{Namespace: public.Namespace, Name: public.Name}, public); err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+		if err := o.client.Create(context.TODO(), public); err != nil {
+			return fmt.Errorf("failed to create default public zone externaldns: %v", err)
+		}
+		logrus.Infof("created default public zone externaldns: %s", public.Name)
 	}
 	return nil
 }

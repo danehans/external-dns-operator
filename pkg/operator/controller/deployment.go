@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -104,17 +105,12 @@ func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage
 	deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
 		"--registry=txt", owner)
 
-	platform := "--provider=" + infraConfig.Status.Platform
+	provider := "--provider=" + strings.ToLower(string(infraConfig.Status.Platform))
 	deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
-		string(platform))
+		strings.ToLower(provider))
 
 	domain := "--domain-filter=" + dnsConfig.Spec.BaseDomain
 	deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, domain)
-
-	// TODO: Use zone filters instead of domain filters.
-	//       Can/Should zoneid & domain filters be combined?
-	//zone := dnsConfig.Spec.PublicZone.ID
-	//deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, zone)
 
 	src := "--source="
 	if edns.Spec.Sources != nil {
@@ -125,12 +121,10 @@ func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage
 		}
 	} else {
 		svc := src + string(operatorv1.ServiceType)
-		ing := src + string(operatorv1.IngressType)
-		deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
-			svc, ing)
+		deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, svc)
 	}
 
-	if platform == configv1.AWSPlatformType {
+	if *edns.Status.ProviderType == operatorv1.AWSProvider {
 		deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
 			"--no-aws-evaluate-target-health")
 
