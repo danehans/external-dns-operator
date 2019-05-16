@@ -26,11 +26,11 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:54a688f74149aee700383de1cdbbaa15ff0098dfdd81c5157fb5e3b28032b21f"
+  digest = "1:e7aba073cb722f6f637d1098f7080a78d0b44c53b5c0848b2cad59197ea41aac"
   name = "github.com/danehans/api"
   packages = ["operator/v1"]
   pruneopts = "NUT"
-  revision = "353ce8acf4bbe85001aedbaa5891334483995150"
+  revision = "316c84e56f120474800cca113c1fccb2322d051c"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"

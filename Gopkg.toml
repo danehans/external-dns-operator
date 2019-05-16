@@ -14,12 +14,6 @@ required = [
   non-go = false
   unused-packages = false
 
-# openshift
-# Temp disable while using danehans repo
-#[[override]]
-#  name = "github.com/openshift/api"
-#  revision = "d2f01e7b77a6fc78b328db20285423838419fef7"
-
 [[constraint]]
   name = "github.com/openshift/library-go"
   revision = "dab26bb3a8dc7fccde7227194af755bbff30ce5d"
@@ -27,7 +21,7 @@ required = [
 # Temp
 [[override]]
   name = "github.com/danehans/api"
-  revision = "353ce8acf4bbe85001aedbaa5891334483995150"
+  revision = "316c84e56f120474800cca113c1fccb2322d051c"
 
 # kube
 [[override]]

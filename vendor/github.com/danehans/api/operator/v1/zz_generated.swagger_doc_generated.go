@@ -207,10 +207,10 @@ func (ExternalDNSList) SwaggerDoc() map[string]string {
 }
 
 var map_ExternalDNSSpec = map[string]string{
-	"namespace":          "namespace limits the source of endpoints for creating ExternalDNS resource records to the specified namespace. If empty, defaults to the default namespace (none).",
-	"sources":            "sources limits resource types that are queried for endpoints of the given namespace. If empty, defaults to Kubernetes service and ingress source types.",
-	"publicZoneFilters":  "publicZoneFilters is one or more Public DNS zones to filter when managing external DNS resource records. If empty, defaults to spec.privateZone from dns.config/cluster.",
-	"privateZoneFilters": "privateZoneFilters is one or more Private DNS zones to filter when managing external DNS resource records. If empty, defaults to spec.publicZone from dns.config/cluster.",
+	"baseDomain": "baseDomain is the base domain used for creating resource records. For example, given the base domain `openshift.example.com`, an API server record may be created for `api.openshift.example.com`.\n\nbaseDomain must be unique among all ExternalDNSes and cannot be updated.\n\nIf empty, defaults to dns.config/cluster .spec.baseDomain.",
+	"namespace":  "namespace limits the source of endpoints for creating ExternalDNS resource records to the specified namespace.\n\nIf empty, defaults to all namespaces.",
+	"sources":    "sources limits resource types that are queried for endpoints of the given namespace.\n\nIf empty, defaults to a Kubernetes Service resource type.",
+	"provider":   "provider is the specification of the DNS provider where DNS records will be created.",
 }
 
 func (ExternalDNSSpec) SwaggerDoc() map[string]string {
@@ -218,12 +218,22 @@ func (ExternalDNSSpec) SwaggerDoc() map[string]string {
 }
 
 var map_ExternalDNSStatus = map[string]string{
-	"provider":   "provider is the DNS provider where DNS records will be created. Taken from infrastructure.config.openshift.io/v1",
-	"baseDomain": "baseDomain is the domain where DNS resource records are created. All records managed by ExternalDNS are sub-domains of this base.\n\nFor example, given the base domain `openshift.example.com`, an API server DNS record may be created for `api.openshift.example.com`.",
+	"provider":   "provider is the name of the DNS provider in use.",
+	"baseDomain": "baseDomain is the base domain in use for creating resource records.",
 }
 
 func (ExternalDNSStatus) SwaggerDoc() map[string]string {
 	return map_ExternalDNSStatus
+}
+
+var map_ProviderSpec = map[string]string{
+	"name":         "name is the service provider name used for creating resource records.\n\nIf empty, defaults to infrastructure.config/cluster .status.platform.",
+	"zoneIDFilter": "zoneIDFilter is a comma separated list of target DNS zone IDs to include for managing external DNS resource records.\n\nIf empty, defaults to dns.config/cluster .spec.privateZone.",
+	"args":         "args is the list of configuration arguments used for the provider.\n\nIf empty, no arguments are used for the provider.",
+}
+
+func (ProviderSpec) SwaggerDoc() map[string]string {
+	return map_ProviderSpec
 }
 
 var map_EndpointPublishingStrategy = map[string]string{
