@@ -218,8 +218,8 @@ func (ExternalDNSSpec) SwaggerDoc() map[string]string {
 }
 
 var map_ExternalDNSStatus = map[string]string{
-	"provider":   "provider is the name of the DNS provider in use.",
-	"baseDomain": "baseDomain is the base domain in use for creating resource records.",
+	"baseDomain": "baseDomain is the baseDomain in use.",
+	"provider":   "providerType is the type of ExternalDNS provider in use.",
 }
 
 func (ExternalDNSStatus) SwaggerDoc() map[string]string {
@@ -227,7 +227,7 @@ func (ExternalDNSStatus) SwaggerDoc() map[string]string {
 }
 
 var map_ProviderSpec = map[string]string{
-	"name":         "name is the service provider name used for creating resource records.\n\nIf empty, defaults to infrastructure.config/cluster .status.platform.",
+	"type":         "type is the ExternalDNS provider used for creating resource records.\n\nIf empty, defaults to infrastructure.config/cluster .status.platform.",
 	"zoneIDFilter": "zoneIDFilter is a comma separated list of target DNS zone IDs to include for managing external DNS resource records.\n\nIf empty, defaults to dns.config/cluster .spec.privateZone.",
 	"args":         "args is the list of configuration arguments used for the provider.\n\nIf empty, no arguments are used for the provider.",
 }

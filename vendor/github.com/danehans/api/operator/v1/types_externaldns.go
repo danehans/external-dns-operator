@@ -78,12 +78,12 @@ const (
 )
 
 type ProviderSpec struct {
-	// name is the service provider name used for creating resource records.
+	// type is the ExternalDNS provider used for creating resource records.
 	//
 	// If empty, defaults to infrastructure.config/cluster .status.platform.
 	//
 	// +optional
-	Name ProviderName `json:"name,omitempty"`
+	Type *ProviderType `json:"type,omitempty"`
 
 	// zoneIDFilter is a comma separated list of target DNS zone
 	// IDs to include for managing external DNS resource records.
@@ -101,31 +101,36 @@ type ProviderSpec struct {
 	Args []string `json:"args,omitempty"`
 }
 
-// ProviderName specifies the name of external DNS provider to use
+// providerType specifies the name of external DNS provider to use
 // for creating resource records.
-type ProviderName string
+type ProviderType string
 
 const (
 	// awsProvider is the name of the Amazon Web Services Route 53 DNS
-	// service provider.
-	// https://aws.amazon.com/route53
-	awsProvider ProviderName = "aws"
+	// ExternalDNS provider.
+	//
+	// https://aws.amazon.com/route53 for more details.
+	AWSProvider ProviderType = "aws"
 
-	// azureProvider is the name of the Azure DNS service provider.
-	// https://docs.microsoft.com/en-us/azure/dns/
-	azureProvider ProviderName = "azure"
+	// azureProvider is the name of the Azure DNS ExternalDNS provider.
+	//
+	// https://docs.microsoft.com/en-us/azure/dns for more details.
+	AzureProvider ProviderType = "azure"
 
-	// googleProvider is the name of the Google Cloud DNS service provider.
-	// https://cloud.google.com/dns/
-	googleProvider ProviderName = "google"
+	// googleProvider is the name of the Google Cloud DNS
+	// ExternalDNS provider.
+	//
+	// https://cloud.google.com/dns for more details.
+	GoogleProvider ProviderType = "google"
 )
 
 type ExternalDNSStatus struct {
-	// provider is the name of the DNS provider in use.
-	Provider string `json:"provider"`
-
-	// baseDomain is the base domain in use for creating resource records.
+	// baseDomain is the baseDomain in use.
 	BaseDomain string `json:"baseDomain"`
+
+	// providerType is the type of ExternalDNS provider
+	// in use.
+	ProviderType *ProviderType `json:"provider,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
