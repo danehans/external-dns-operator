@@ -210,6 +210,7 @@ var map_ExternalDNSSpec = map[string]string{
 	"baseDomain": "baseDomain is the base domain used for creating resource records. For example, given the base domain `openshift.example.com`, an API server record may be created for `api.openshift.example.com`.\n\nbaseDomain must be unique among all ExternalDNSes and cannot be updated.\n\nIf empty, defaults to dns.config/cluster .spec.baseDomain.",
 	"namespace":  "namespace limits the source of endpoints for creating ExternalDNS resource records to the specified namespace.\n\nIf empty, defaults to all namespaces.",
 	"sources":    "sources limits resource types that are queried for endpoints of the given namespace.\n\nIf empty, defaults to a Kubernetes Service resource type.",
+	"zoneType":   "zoneType...\n\nIf empty, defaults to PrivateZoneType.",
 	"provider":   "provider is the specification of the DNS provider where DNS records will be created.",
 }
 
@@ -227,9 +228,9 @@ func (ExternalDNSStatus) SwaggerDoc() map[string]string {
 }
 
 var map_ProviderSpec = map[string]string{
-	"type":         "type is the ExternalDNS provider used for creating resource records.\n\nIf empty, defaults to infrastructure.config/cluster .status.platform.",
-	"zoneIDFilter": "zoneIDFilter is a comma separated list of target DNS zone IDs to include for managing external DNS resource records.\n\nIf empty, defaults to dns.config/cluster .spec.privateZone.",
-	"args":         "args is the list of configuration arguments used for the provider.\n\nIf empty, no arguments are used for the provider.",
+	"type":       "type is the ExternalDNS provider used for creating resource records.\n\nIf empty, defaults to infrastructure.config/cluster .status.platform.",
+	"zoneFilter": "zoneFilter is a comma separated list of target DNSZone's to include for managing external DNS resource records.\n\nIf empty, defaults to dns.config/cluster .spec.privateZone.",
+	"args":       "args is the list of configuration arguments used for the provider.\n\nIf empty, no arguments are used for the provider.",
 }
 
 func (ProviderSpec) SwaggerDoc() map[string]string {

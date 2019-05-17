@@ -562,6 +562,11 @@ func (in *ExternalDNSSpec) DeepCopyInto(out *ExternalDNSSpec) {
 			}
 		}
 	}
+	if in.ZoneType != nil {
+		in, out := &in.ZoneType, &out.ZoneType
+		*out = new(ZoneType)
+		**out = **in
+	}
 	in.Provider.DeepCopyInto(&out.Provider)
 	return
 }
@@ -1573,11 +1578,15 @@ func (in *ProviderSpec) DeepCopyInto(out *ProviderSpec) {
 		*out = new(ProviderType)
 		**out = **in
 	}
-	if in.ZoneIDFilter != nil {
-		in, out := &in.ZoneIDFilter, &out.ZoneIDFilter
-		*out = make([]configv1.DNSZone, len(*in))
+	if in.ZoneFilter != nil {
+		in, out := &in.ZoneFilter, &out.ZoneFilter
+		*out = make([]*configv1.DNSZone, len(*in))
 		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(configv1.DNSZone)
+				(*in).DeepCopyInto(*out)
+			}
 		}
 	}
 	if in.Args != nil {
