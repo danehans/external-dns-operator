@@ -8,17 +8,15 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
+//
 // ExternalDNS describes a managed ExternalDNS controller for an OpenShift cluster.
-// The controller supports OpenShift Service [1] and Ingress [2] resources.
+// The controller supports the Kubernetes Service [1] resource:
 //
 // [1] https://kubernetes.io/docs/concepts/services-networking/service
-// [2] https://kubernetes.io/docs/concepts/services-networking/ingress
 //
 // When an ExternalDNS is created, a new ExternalDNS controller is instantiated
 // within the OpenShift cluster. The controller provides dns resource record management
-// of specific service and/or ingress resources for the configured OpenShift platform
-// type.
+// of specific service resources for the configured OpenShift platform.
 //
 // Whenever possible, sensible defaults are used. See each field for more details.
 type ExternalDNS struct {

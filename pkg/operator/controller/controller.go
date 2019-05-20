@@ -28,8 +28,13 @@ import (
 )
 
 const (
-	// DefaultExternalDNSController is the name of the default ExternalDNS instance.
-	DefaultExternalDNSController = "default"
+	// DefaultExternalDNSPublicZoneController is the name of the default
+	// ExternalDNS instance  for the public hosted zone.
+	DefaultExternalDNSPublicZoneController = "default-public-zone"
+
+	// DefaultExternalDNSPrivateZoneController is the name of the default
+	// ExternalDNS instance for the private hosted zone.
+	DefaultExternalDNSPrivateZoneController = "default-private-zone"
 
 	// ExternalDNSControllerFinalizer is applied to an ExternalDNS before being considered
 	// for processing. This ensures the operator has a chance to handle all states.
@@ -85,19 +90,14 @@ type reconciler struct {
 	client kclient.Client
 }
 
-// Reconcile expects request to refer to a dns and will do all the work
-// to ensure the dns is in the desired state.
+// Reconcile expects request to refer to an externaldns and will do all the work
+// to ensure the externaldns is in the desired state.
 func (r *reconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	errs := []error{}
 	result := reconcile.Result{}
 
 	logrus.Infof("reconciling request: %v", request)
 
-	if request.NamespacedName.Name != DefaultExternalDNSController {
-		// Return a nil error value to avoid re-triggering the event.
-		logrus.Errorf("skipping unexpected externaldns %s", request.NamespacedName.Name)
-		return result, nil
-	}
 	// Get the current externaldns state.
 	edns := &operatorv1.ExternalDNS{}
 	if err := r.client.Get(context.TODO(), request.NamespacedName, edns); err != nil {
@@ -127,12 +127,15 @@ func (r *reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 			// Ensure we have all the necessary scaffolding on which to place externaldns instances.
 			if err := r.ensureExternalDNSNamespace(edns); err != nil {
 				errs = append(errs, fmt.Errorf("failed to ensure externaldns namespace: %v", err))
-			}
-			if err := r.enforceEffectiveBaseDomain(edns); err != nil {
+			} else if err := r.enforceEffectiveSourceType(edns); err != nil {
+				errs = append(errs, fmt.Errorf("failed to enforce the effective sourceType for %s: %v", edns.Name, err))
+			} else if err := r.enforceEffectiveBaseDomain(edns, dnsConfig); err != nil {
 				errs = append(errs, fmt.Errorf("failed to enforce the effective externaldns baseDomain for %s: %v", edns.Name, err))
 			} else if IsStatusBaseDomainSet(edns) {
 				if err := r.enforceEffectiveProvider(edns, infraConfig); err != nil {
 					errs = append(errs, fmt.Errorf("failed to enforce the effective provider for externaldns %s: %v", edns.Name, err))
+				} else if err := r.enforceEffectiveZoneFilter(edns, dnsConfig); err != nil {
+					errs = append(errs, fmt.Errorf("failed to enforce the effective zoneFilter for externaldns %s: %v", edns.Name, err))
 				} else if edns.DeletionTimestamp != nil {
 					// Handle deletion.
 					if err := r.ensureExternalDNSDeleted(edns); err != nil {
@@ -209,9 +212,43 @@ func (r *reconciler) ensureExternalDNSNamespace(edns *operatorv1.ExternalDNS) er
 	return nil
 }
 
+// enforceEffectiveSourceType determines the effective sourceType for
+// the given edns.
+func (r *reconciler) enforceEffectiveSourceType(edns *operatorv1.ExternalDNS) error {
+	if edns.Spec.Sources != nil {
+		return nil
+	}
+	svc := operatorv1.ServiceType
+	updated := edns.DeepCopy()
+	updated.Spec.Sources = []*operatorv1.SourceType{&svc}
+
+	if err := r.client.Update(context.TODO(), updated); err != nil {
+		return fmt.Errorf("failed to update ExternalDNS %s/%s: %v", updated.Namespace, updated.Name, err)
+	}
+
+	return nil
+}
+
+// enforceEffectiveZoneType determines the effective zoneType for
+// the given edns.
+func (r *reconciler) enforceEffectiveZoneType(edns *operatorv1.ExternalDNS) error {
+	if edns.Spec.ZoneType != nil {
+		return nil
+	}
+	public:= operatorv1.PublicZoneType
+	updated := edns.DeepCopy()
+	updated.Spec.ZoneType = &public
+
+	if err := r.client.Update(context.TODO(), updated); err != nil {
+		return fmt.Errorf("failed to update ExternalDNS %s/%s: %v", updated.Namespace, updated.Name, err)
+	}
+
+	return nil
+}
+
 // enforceEffectiveBaseDomain determines the effective baseDomain for the
-// given externaldns and and publishes it to the externaldns's status.
-func (r *reconciler) enforceEffectiveBaseDomain(edns *operatorv1.ExternalDNS) error {
+// given edns and publishes it to edns's status.
+func (r *reconciler) enforceEffectiveBaseDomain(edns *operatorv1.ExternalDNS, dnsConfig *configv1.DNS) error {
 	// An externaldns' baseDomain is immutable, so if has
 	// been published to status, continue using it.
 	if IsStatusBaseDomainSet(edns) {
@@ -224,9 +261,9 @@ func (r *reconciler) enforceEffectiveBaseDomain(edns *operatorv1.ExternalDNS) er
 	case len(edns.Spec.BaseDomain) > 0:
 		domain = edns.Spec.BaseDomain
 	default:
-		domain = edns.Spec.BaseDomain
+		domain = dnsConfig.Spec.BaseDomain
 	}
-	unique, err := r.isBaseDomainUnique(domain)
+	unique, err := r.isBaseDomainUniqueForZoneType(domain, edns)
 	if err != nil {
 		return err
 	}
@@ -244,9 +281,9 @@ func (r *reconciler) enforceEffectiveBaseDomain(edns *operatorv1.ExternalDNS) er
 }
 
 // isBaseDomainUnique compares baseDomain with spec.domain of all
-// externalDNSes and returns false if a conflict exists or an error
-// if the externalDNS list operation returns an error.
-func (r *reconciler) isBaseDomainUnique(domain string) (bool, error) {
+// externalDNSes and returns false if a conflict exists of the same
+// ZoneType or an error if the externalDNS list operation returns an error.
+func (r *reconciler) isBaseDomainUniqueForZoneType(domain string, edns *operatorv1.ExternalDNS) (bool, error) {
 	dnses := &operatorv1.ExternalDNSList{}
 	if err := r.client.List(context.TODO(), dnses, kclient.InNamespace(r.Namespace)); err != nil {
 		return false, fmt.Errorf("failed to list externaldnses: %v", err)
@@ -254,7 +291,7 @@ func (r *reconciler) isBaseDomainUnique(domain string) (bool, error) {
 
 	// Compare domain with all externaldnses for a conflict.
 	for _, dns := range dnses.Items {
-		if domain == dns.Status.BaseDomain {
+		if domain == dns.Status.BaseDomain && dns.Spec.ZoneType == edns.Spec.ZoneType {
 			logrus.Infof("baseDomain %q conflicts with existing ExternalDNS: %s/%s", domain, dns.Namespace, dns.Name)
 			return false, nil
 		}
@@ -288,9 +325,26 @@ func providerTypeForInfra(infraConfig *configv1.Infrastructure) *operatorv1.Prov
 	return &provider
 }
 
+// enforceEffectiveZoneFilter uses the dnsConfig to determine the
+// appropriate zoneFilter configuration for the given externaldns.
+func (r *reconciler) enforceEffectiveZoneFilter(edns *operatorv1.ExternalDNS, dnsConfig *configv1.DNS) error {
+	updated := edns.DeepCopy()
+	switch {
+	case edns.Spec.Provider.ZoneFilter != nil:
+		return nil
+	default:
+		updated.Spec.Provider.ZoneFilter = []*configv1.DNSZone{dnsConfig.Spec.PrivateZone}
+	}
+	if err := r.client.Update(context.TODO(), updated); err != nil {
+		return fmt.Errorf("failed to update externaldns %s/%s: %v", updated.Namespace, updated.Name, err)
+	}
+
+	return nil
+}
+
 // enforceEffectiveProvider uses the infrastructure config to
 // determine the appropriate provider configuration for the
-// given externaldns and publishes it to the externaldns' status.
+// given edns and publishes it to the externaldns' status.
 func (r *reconciler) enforceEffectiveProvider(edns *operatorv1.ExternalDNS, infraConfig *configv1.Infrastructure) error {
 	// The externaldns' provider is immutable, so
 	// if we have previously published a strategy in status, we must

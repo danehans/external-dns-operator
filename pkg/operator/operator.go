@@ -10,6 +10,8 @@ import (
 	"time"
 
 	operatorv1 "github.com/danehans/api/operator/v1"
+	configv1 "github.com/openshift/api/config/v1"
+
 	"github.com/danehans/external-dns-operator/pkg/manifests"
 	operatorclient "github.com/danehans/external-dns-operator/pkg/operator/client"
 	operatorconfig "github.com/danehans/external-dns-operator/pkg/operator/config"
@@ -34,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-// Operator is the scaffolding for the dns operator. It sets up dependencies
+// Operator is the scaffolding for the externaldns operator. It sets up dependencies
 // and defines the topology of the operator and its managed components, wiring
 // them together.
 type Operator struct {
@@ -133,9 +135,9 @@ func New(config operatorconfig.Config, kubeConfig *rest.Config) (*Operator, erro
 func (o *Operator) Start(stop <-chan struct{}) error {
 	// Periodically ensure the default externaldns controller exists.
 	go wait.Until(func() {
-		if err := o.ensureDefaultPrivateExternalDNS(); err != nil {
-			logrus.Errorf("failed to ensure default private zone externaldns: %v", err)
-		}
+		//if err := o.ensureDefaultPrivateExternalDNS(); err != nil {
+		//	logrus.Errorf("failed to ensure default private zone externaldns: %v", err)
+		//}
 		if err := o.ensureDefaultPublicExternalDNS(); err != nil {
 			logrus.Errorf("failed to ensure default public zone externaldns: %v", err)
 		}
@@ -162,7 +164,7 @@ func (o *Operator) Start(stop <-chan struct{}) error {
 func (o *Operator) ensureDefaultPrivateExternalDNS() error {
 	private := &operatorv1.ExternalDNS{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorcontroller.DefaultExternalDNSController + "-private",
+			Name:      operatorcontroller.DefaultExternalDNSPrivateZoneController,
 			Namespace: o.namespace,
 		},
 	}
@@ -181,20 +183,36 @@ func (o *Operator) ensureDefaultPrivateExternalDNS() error {
 // ensureDefaultPublicExternalDNS creates the default public zone externaldns
 // if it does not already exist.
 func (o *Operator) ensureDefaultPublicExternalDNS() error {
-	public := &operatorv1.ExternalDNS{
+	svc := operatorv1.ServiceType
+	pubZone := operatorv1.PublicZoneType
+	aws := operatorv1.AWSProvider
+	pubFilter := configv1.DNSZone{
+		ID: "Z3URY6TWQ91KVV",
+	}
+	pubDNS := &operatorv1.ExternalDNS{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorcontroller.DefaultExternalDNSController + "-public",
+			Name:      operatorcontroller.DefaultExternalDNSPublicZoneController,
 			Namespace: o.namespace,
 		},
+		Spec: operatorv1.ExternalDNSSpec{
+			BaseDomain: "dhansen.devcluster.openshift.com",
+			Sources: []*operatorv1.SourceType{&svc},
+			ZoneType: &pubZone,
+			Provider: operatorv1.ProviderSpec{
+				Type: &aws,
+				ZoneFilter: []*configv1.DNSZone{&pubFilter},
+				Args: []string{"--aws-zone-type=public", "--aws-api-retries=3"},
+			},
+		},
 	}
-	if err := o.client.Get(context.TODO(), types.NamespacedName{Namespace: public.Namespace, Name: public.Name}, public); err != nil {
+	if err := o.client.Get(context.TODO(), types.NamespacedName{Namespace: pubDNS.Namespace, Name: pubDNS.Name}, pubDNS); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
-		if err := o.client.Create(context.TODO(), public); err != nil {
+		if err := o.client.Create(context.TODO(), pubDNS); err != nil {
 			return fmt.Errorf("failed to create default public zone externaldns: %v", err)
 		}
-		logrus.Infof("created default public zone externaldns: %s", public.Name)
+		logrus.Infof("created default public zone externaldns: %s", pubDNS.Name)
 	}
 	return nil
 }

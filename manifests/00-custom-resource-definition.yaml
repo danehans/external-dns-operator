@@ -56,10 +56,10 @@ spec:
                     resource records.  If empty, defaults to infrastructure.config/cluster
                     .status.platform.
                   type: string
-                zoneIDFilter:
-                  description: zoneIDFilter is a comma separated list of target DNS
-                    zone IDs to include for managing external DNS resource records.  If
-                    empty, defaults to dns.config/cluster .spec.privateZone.
+                zoneFilter:
+                  description: zoneFilter is a comma separated list of target DNSZone's
+                    to include for managing external DNS resource records.  If empty,
+                    defaults to dns.config/cluster .spec.privateZone.
                   items:
                     properties:
                       id:
@@ -86,6 +86,9 @@ spec:
               items:
                 type: string
               type: array
+            zoneType:
+              description: zoneType...  If empty, defaults to PrivateZoneType.
+              type: string
           type: object
         status:
           description: status is the most recently observed status of the ExternalDNS.

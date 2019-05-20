@@ -21,7 +21,7 @@ required = [
 # Temp
 [[override]]
   name = "github.com/danehans/api"
-  revision = "65dff9ea6f7db437e6e4925c4bd7bc9bcb866b64"
+  revision = "85bf3f886c9d43f93448228c8ca8fdc31b2743ec"
 
 # kube
 [[override]]

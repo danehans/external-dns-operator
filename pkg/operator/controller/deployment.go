@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -26,7 +25,7 @@ import (
 // given externalDNS resource.
 func (r *reconciler) ensureExternalDNSDeployment(eds *operatorv1.ExternalDNS, dnsConfig *configv1.DNS,
 	infraConfig *configv1.Infrastructure) error {
-	desired := desiredExternalDNSDeployment(eds, r.Config.ExternalDNSImage, dnsConfig, infraConfig)
+	desired := desiredExternalDNSDeployment(eds, r.Config.ExternalDNSImage, infraConfig)
 	current, err := r.currentExternalDNSDeployment(eds)
 	if err != nil {
 		return err
@@ -48,7 +47,7 @@ func (r *reconciler) ensureExternalDNSDeployment(eds *operatorv1.ExternalDNS, dn
 // resources associated with the externaldns are deleted.
 func (r *reconciler) ensureExternalDNSDeploymentDeleted(eds *operatorv1.ExternalDNS) error {
 	deployment := &appsv1.Deployment{}
-	name := ExternalDNSDeploymentName(eds)
+	name := ExternalDNSDeploymentNamespacedName(eds)
 	deployment.Name = name.Name
 	deployment.Namespace = name.Namespace
 	if err := r.client.Delete(context.TODO(), deployment); err != nil {
@@ -61,9 +60,9 @@ func (r *reconciler) ensureExternalDNSDeploymentDeleted(eds *operatorv1.External
 
 // desiredExternalDNSDeployment returns the desired ExternalDNS deployment.
 func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage string,
-	dnsConfig *configv1.DNS, infraConfig *configv1.Infrastructure) *appsv1.Deployment {
+	infraConfig *configv1.Infrastructure) *appsv1.Deployment {
 	deployment := manifests.ExternalDNSDeployment()
-	name := ExternalDNSDeploymentName(edns)
+	name := ExternalDNSDeploymentNamespacedName(edns)
 	deployment.Name = name.Name
 	deployment.Namespace = name.Namespace
 
@@ -89,7 +88,7 @@ func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage
 								{
 									Key:      controllerDeploymentLabel,
 									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{ExternalDNSDeploymentLabel(edns)},
+									Values:   []string{ExternalDNSName(edns)},
 								},
 							},
 						},
@@ -101,27 +100,20 @@ func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage
 
 	deployment.Spec.Template.Spec.Containers[0].Image = ExternalDNSImage
 
-	owner := "--txt-owner-id=" + ExternalDNSDeploymentLabel(edns)
+	owner := "--txt-owner-id=" + TextOwnerID(infraConfig, edns)
 	deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
 		"--registry=txt", owner)
 
-	provider := "--provider=" + strings.ToLower(string(infraConfig.Status.Platform))
-	deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
-		strings.ToLower(provider))
+	provider := "--provider=" + string(*edns.Status.ProviderType)
+	deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, provider)
 
-	domain := "--domain-filter=" + dnsConfig.Spec.BaseDomain
+	domain := "--domain-filter=" + edns.Status.BaseDomain
 	deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, domain)
 
 	src := "--source="
-	if edns.Spec.Sources != nil {
-		for _, s := range edns.Spec.Sources {
-			src += string(*s)
-			deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
-				src)
-		}
-	} else {
-		svc := src + string(operatorv1.ServiceType)
-		deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, svc)
+	for _, s := range edns.Spec.Sources {
+		src += string(*s)
+		deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, src)
 	}
 
 	if *edns.Status.ProviderType == operatorv1.AWSProvider {
@@ -136,7 +128,7 @@ func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage
 // currentExternalDNSDeployment returns the current ExternalDNS deployment.
 func (r *reconciler) currentExternalDNSDeployment(edns *operatorv1.ExternalDNS) (*appsv1.Deployment, error) {
 	deployment := &appsv1.Deployment{}
-	if err := r.client.Get(context.TODO(), ExternalDNSDeploymentName(edns), deployment); err != nil {
+	if err := r.client.Get(context.TODO(), ExternalDNSDeploymentNamespacedName(edns), deployment); err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}

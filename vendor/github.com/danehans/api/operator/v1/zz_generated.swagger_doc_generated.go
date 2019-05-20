@@ -189,7 +189,7 @@ func (EtcdList) SwaggerDoc() map[string]string {
 }
 
 var map_ExternalDNS = map[string]string{
-	"":       "ExternalDNS describes a managed ExternalDNS controller for an OpenShift cluster. The controller supports OpenShift Service [1] and Ingress [2] resources.\n\n[1] https://kubernetes.io/docs/concepts/services-networking/service [2] https://kubernetes.io/docs/concepts/services-networking/ingress\n\nWhen an ExternalDNS is created, a new ExternalDNS controller is instantiated within the OpenShift cluster. The controller provides dns resource record management of specific service and/or ingress resources for the configured OpenShift platform type.\n\nWhenever possible, sensible defaults are used. See each field for more details.",
+	"":       "\n\nExternalDNS describes a managed ExternalDNS controller for an OpenShift cluster. The controller supports the Kubernetes Service [1] resource:\n\n[1] https://kubernetes.io/docs/concepts/services-networking/service\n\nWhen an ExternalDNS is created, a new ExternalDNS controller is instantiated within the OpenShift cluster. The controller provides dns resource record management of specific service resources for the configured OpenShift platform.\n\nWhenever possible, sensible defaults are used. See each field for more details.",
 	"spec":   "spec is the specification of the desired behavior of the ExternalDNS.",
 	"status": "status is the most recently observed status of the ExternalDNS.",
 }
