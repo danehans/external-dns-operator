@@ -269,6 +269,7 @@ func (r *reconciler) enforceEffectiveBaseDomain(edns *operatorv1.ExternalDNS, dn
 	}
 	if !unique {
 		logrus.Infof("baseDomain not unique, not setting ExternalDNS .status.baseDomain for %s/%s", edns.Namespace, edns.Name)
+		return nil
 	} else {
 		updated.Status.BaseDomain = domain
 	}

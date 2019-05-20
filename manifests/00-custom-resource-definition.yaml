@@ -101,6 +101,8 @@ spec:
               type: string
           type: object
   version: v1
+  subresources:
+    status: {}
 status:
   acceptedNames:
     kind: ""
