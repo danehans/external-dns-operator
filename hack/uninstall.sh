@@ -7,10 +7,12 @@ WHAT="${WHAT:-managed}"
 oc scale --replicas 0 -n openshift-cluster-version deployments/cluster-version-operator
 
 # Uninstall the ingress-operator
-oc delete -n openshift-externaldns-operator deployments/externaldns-operator
-oc patch -n openshift-externaldns-operator externaldns/default --patch '{"metadata":{"finalizers": []}}' --type=merge
 oc delete clusteroperator.config.openshift.io/externaldns
-oc delete --force --grace-period=0 -n openshift-externaldns-operator externaldns/default
+oc delete --force --grace-period=0 -n openshift-externaldns-operator externaldns/default-public-zone
+oc patch -n openshift-externaldns-operator externaldns/default-public-zone --patch '{"metadata":{"finalizers": []}}' --type=merge
+oc delete --force --grace-period=0 -n openshift-externaldns-operator externaldns/default-private-zone
+oc patch -n openshift-externaldns-operator externaldns/default-private-zone --patch '{"metadata":{"finalizers": []}}' --type=merge
+oc delete -n openshift-externaldns-operator deployments/externaldns-operator
 
 if [ "$WHAT" == "all" ]; then
   oc delete namespaces/openshift-externaldns-operator

@@ -25,7 +25,7 @@ import (
 // given externalDNS resource.
 func (r *reconciler) ensureExternalDNSDeployment(eds *operatorv1.ExternalDNS, dnsConfig *configv1.DNS,
 	infraConfig *configv1.Infrastructure) error {
-	desired := desiredExternalDNSDeployment(eds, r.Config.ExternalDNSImage, infraConfig)
+	desired := r.desiredExternalDNSDeployment(eds, r.Config.ExternalDNSImage, infraConfig)
 	current, err := r.currentExternalDNSDeployment(eds)
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func (r *reconciler) ensureExternalDNSDeploymentDeleted(eds *operatorv1.External
 	name := ExternalDNSDeploymentNamespacedName(eds)
 	deployment.Name = name.Name
 	deployment.Namespace = name.Namespace
-	if err := r.client.Delete(context.TODO(), deployment); err != nil {
+	if err := r.kclient.Delete(context.TODO(), deployment); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
@@ -59,7 +59,7 @@ func (r *reconciler) ensureExternalDNSDeploymentDeleted(eds *operatorv1.External
 }
 
 // desiredExternalDNSDeployment returns the desired ExternalDNS deployment.
-func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage string,
+func (r *reconciler) desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage string,
 	infraConfig *configv1.Infrastructure) *appsv1.Deployment {
 	deployment := manifests.ExternalDNSDeployment()
 	name := ExternalDNSDeploymentNamespacedName(edns)
@@ -107,8 +107,8 @@ func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage
 	provider := "--provider=" + string(*edns.Status.ProviderType)
 	deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, provider)
 
-	domain := "--domain-filter=" + edns.Status.BaseDomain
-	deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, domain)
+	//domain := "--domain-filter=" + strings.Trimedns.Status.BaseDomain
+	//deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, domain)
 
 	src := "--source="
 	for _, s := range edns.Spec.Sources {
@@ -117,9 +117,44 @@ func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage
 	}
 
 	if *edns.Status.ProviderType == operatorv1.AWSProvider {
+		authEnvVars := []corev1.EnvVar{
+			{
+				Name: "AWS_ACCESS_KEY_ID",
+				Value: string(r.Credentials.Data["aws_access_key_id"]),
+			},
+			{
+				Name: "AWS_SECRET_ACCESS_KEY",
+				Value: string(r.Credentials.Data["aws_secret_access_key"]),
+			},
+		}
+		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, authEnvVars...)
 		deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
-			"--no-aws-evaluate-target-health")
+			"--no-aws-evaluate-target-health", "--aws-api-retries=3")
+		if *edns.Spec.ZoneType == operatorv1.PublicZoneType {
+			deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
+				"--aws-zone-type=public")
+		}
+		if *edns.Spec.ZoneType == operatorv1.PrivateZoneType {
+			deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args,
+				"--aws-zone-type=private")
+		}
+	}
 
+	if edns.Spec.Provider.Args != nil {
+		for _, a := range edns.Spec.Provider.Args {
+			deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, a)
+		}
+	}
+
+	if edns.Spec.Provider.ZoneFilter != nil {
+		for _, z := range edns.Spec.Provider.ZoneFilter {
+			if len(z.ID) != 0 {
+				zf := "--zone-id-filter=" + z.ID
+				deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, zf)
+			}
+			// Tag filters are broken upstream:
+			// https://github.com/kubernetes-incubator/external-dns/issues/1019
+		}
 	}
 
 	return deployment
@@ -128,7 +163,7 @@ func desiredExternalDNSDeployment(edns *operatorv1.ExternalDNS, ExternalDNSImage
 // currentExternalDNSDeployment returns the current ExternalDNS deployment.
 func (r *reconciler) currentExternalDNSDeployment(edns *operatorv1.ExternalDNS) (*appsv1.Deployment, error) {
 	deployment := &appsv1.Deployment{}
-	if err := r.client.Get(context.TODO(), ExternalDNSDeploymentNamespacedName(edns), deployment); err != nil {
+	if err := r.kclient.Get(context.TODO(), ExternalDNSDeploymentNamespacedName(edns), deployment); err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -139,7 +174,7 @@ func (r *reconciler) currentExternalDNSDeployment(edns *operatorv1.ExternalDNS) 
 
 // createExternalDNSDeployment creates a ExternalDNS deployment.
 func (r *reconciler) createExternalDNSDeployment(deployment *appsv1.Deployment) error {
-	if err := r.client.Create(context.TODO(), deployment); err != nil {
+	if err := r.kclient.Create(context.TODO(), deployment); err != nil {
 		return fmt.Errorf("failed to create ExternalDNS deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
 	}
 	logrus.Infof("created ExternalDNS deployment %s/%s", deployment.Namespace, deployment.Name)
@@ -153,7 +188,7 @@ func (r *reconciler) updateExternalDNSDeployment(current, desired *appsv1.Deploy
 		return nil
 	}
 
-	if err := r.client.Update(context.TODO(), updated); err != nil {
+	if err := r.kclient.Update(context.TODO(), updated); err != nil {
 		return fmt.Errorf("failed to update ExternalDNS deployment %s/%s: %v", updated.Namespace, updated.Name, err)
 	}
 	logrus.Infof("updated ExternalDNS deployment %s/%s", updated.Namespace, updated.Name)

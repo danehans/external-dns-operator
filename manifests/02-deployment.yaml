@@ -34,7 +34,8 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: IMAGE
-              value: openshift/origin-externaldns:v4.2
+              # TODO: Create an operator image instead of using Hive's.
+              value: registry.svc.ci.openshift.org/openshift/hive-v4.0:external-dns
           resources:
             requests:
               cpu: 10m

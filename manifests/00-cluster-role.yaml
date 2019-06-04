@@ -47,6 +47,13 @@ rules:
   - delete
 
 - apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - get
+
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterroles

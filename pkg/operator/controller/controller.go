@@ -15,6 +15,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -52,12 +54,12 @@ const (
 func New(mgr manager.Manager, config Config) (controller.Controller, error) {
 	kubeClient, err := operatorclient.NewClient(config.KubeConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create kube client: %v", err)
+		return nil, fmt.Errorf("failed to create kube kclient: %v", err)
 	}
 
 	reconciler := &reconciler{
-		Config: config,
-		client: kubeClient,
+		Config:  config,
+		kclient: kubeClient,
 	}
 	c, err := controller.New("operator-controller", mgr, controller.Options{Reconciler: reconciler})
 	if err != nil {
@@ -75,6 +77,7 @@ type Config struct {
 	KubeConfig       *rest.Config
 	Namespace        string
 	ExternalDNSImage string
+	Credentials      *corev1.Secret
 }
 
 // reconciler handles the actual externaldns reconciliation logic in response to
@@ -82,12 +85,12 @@ type Config struct {
 type reconciler struct {
 	Config
 
-	// client is the kube Client and it will refresh scheme/mapper fields if needed
+	// kclient is the kube Client and it will refresh scheme/mapper fields if needed
 	// to detect some resources like ServiceMonitor which could get registered after
-	// the client creation.
+	// the kclient creation.
 	// Since this controller is running in single threaded mode,
 	// we do not need to synchronize when changing rest scheme/mapper fields.
-	client kclient.Client
+	kclient kclient.Client
 }
 
 // Reconcile expects request to refer to an externaldns and will do all the work
@@ -100,7 +103,7 @@ func (r *reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 
 	// Get the current externaldns state.
 	edns := &operatorv1.ExternalDNS{}
-	if err := r.client.Get(context.TODO(), request.NamespacedName, edns); err != nil {
+	if err := r.kclient.Get(context.TODO(), request.NamespacedName, edns); err != nil {
 		if errors.IsNotFound(err) {
 			// This means the externaldns was already deleted/finalized and there
 			// are stale queue entries (or something edge triggering from a related
@@ -114,12 +117,12 @@ func (r *reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 
 	if edns != nil {
 		dnsConfig := &configv1.DNS{}
-		if err := r.client.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, dnsConfig); err != nil {
+		if err := r.kclient.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, dnsConfig); err != nil {
 			errs = append(errs, fmt.Errorf("failed to get dns.config 'cluster': %v", err))
 			dnsConfig = nil
 		}
 		infraConfig := &configv1.Infrastructure{}
-		if err := r.client.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, infraConfig); err != nil {
+		if err := r.kclient.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, infraConfig); err != nil {
 			errs = append(errs, fmt.Errorf("failed to get infrastructure 'cluster': %v", err))
 			infraConfig = nil
 		}
@@ -166,44 +169,44 @@ func (r *reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 // for externaldns generally, including a namespace and all RBAC setup.
 func (r *reconciler) ensureExternalDNSNamespace(edns *operatorv1.ExternalDNS) error {
 	ns := manifests.ExternalDNSNamespace()
-	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: ns.Name}, ns); err != nil {
+	if err := r.kclient.Get(context.TODO(), types.NamespacedName{Name: ns.Name}, ns); err != nil {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("failed to get externaldns namespace %q: %v", ns.Name, err)
 		}
-		if err := r.client.Create(context.TODO(), ns); err != nil {
+		if err := r.kclient.Create(context.TODO(), ns); err != nil {
 			return fmt.Errorf("failed to create externaldns namespace %s: %v", ns.Name, err)
 		}
 		logrus.Infof("created externaldns namespace: %s", ns.Name)
 	}
 
 	cr := manifests.ExternalDNSClusterRole()
-	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, cr); err != nil {
+	if err := r.kclient.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, cr); err != nil {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("failed to get externaldns cluster role %s: %v", cr.Name, err)
 		}
-		if err := r.client.Create(context.TODO(), cr); err != nil {
+		if err := r.kclient.Create(context.TODO(), cr); err != nil {
 			return fmt.Errorf("failed to create externaldns cluster role %s: %v", cr.Name, err)
 		}
 		logrus.Infof("created externaldns cluster role: %s", cr.Name)
 	}
 
 	crb := manifests.ExternalDNSClusterRoleBinding()
-	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: crb.Name}, crb); err != nil {
+	if err := r.kclient.Get(context.TODO(), types.NamespacedName{Name: crb.Name}, crb); err != nil {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("failed to get externaldns cluster role binding %s: %v", crb.Name, err)
 		}
-		if err := r.client.Create(context.TODO(), crb); err != nil {
+		if err := r.kclient.Create(context.TODO(), crb); err != nil {
 			return fmt.Errorf("failed to create externaldns cluster role binding %s: %v", crb.Name, err)
 		}
 		logrus.Infof("created externaldns cluster role binding: %s", crb.Name)
 	}
 
 	sa := manifests.ExternalDNSServiceAccount()
-	if err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: sa.Namespace, Name: sa.Name}, sa); err != nil {
+	if err := r.kclient.Get(context.TODO(), types.NamespacedName{Namespace: sa.Namespace, Name: sa.Name}, sa); err != nil {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("failed to get externaldns service account %s/%s: %v", sa.Namespace, sa.Name, err)
 		}
-		if err := r.client.Create(context.TODO(), sa); err != nil {
+		if err := r.kclient.Create(context.TODO(), sa); err != nil {
 			return fmt.Errorf("failed to create externaldns service account %s/%s: %v", sa.Namespace, sa.Name, err)
 		}
 		logrus.Infof("created externaldns service account: %s/%s", sa.Namespace, sa.Name)
@@ -222,7 +225,7 @@ func (r *reconciler) enforceEffectiveSourceType(edns *operatorv1.ExternalDNS) er
 	updated := edns.DeepCopy()
 	updated.Spec.Sources = []*operatorv1.SourceType{&svc}
 
-	if err := r.client.Update(context.TODO(), updated); err != nil {
+	if err := r.kclient.Update(context.TODO(), updated); err != nil {
 		return fmt.Errorf("failed to update ExternalDNS %s/%s: %v", updated.Namespace, updated.Name, err)
 	}
 
@@ -239,7 +242,7 @@ func (r *reconciler) enforceEffectiveZoneType(edns *operatorv1.ExternalDNS) erro
 	updated := edns.DeepCopy()
 	updated.Spec.ZoneType = &public
 
-	if err := r.client.Update(context.TODO(), updated); err != nil {
+	if err := r.kclient.Update(context.TODO(), updated); err != nil {
 		return fmt.Errorf("failed to update ExternalDNS %s/%s: %v", updated.Namespace, updated.Name, err)
 	}
 
@@ -274,7 +277,7 @@ func (r *reconciler) enforceEffectiveBaseDomain(edns *operatorv1.ExternalDNS, dn
 		updated.Status.BaseDomain = domain
 	}
 
-	if err := r.client.Status().Update(context.TODO(), updated); err != nil {
+	if err := r.kclient.Status().Update(context.TODO(), updated); err != nil {
 		return fmt.Errorf("failed to update status of ExternalDNS %s/%s: %v", updated.Namespace, updated.Name, err)
 	}
 
@@ -286,7 +289,7 @@ func (r *reconciler) enforceEffectiveBaseDomain(edns *operatorv1.ExternalDNS, dn
 // ZoneType or an error if the externalDNS list operation returns an error.
 func (r *reconciler) isBaseDomainUniqueForZoneType(domain string, edns *operatorv1.ExternalDNS) (bool, error) {
 	dnses := &operatorv1.ExternalDNSList{}
-	if err := r.client.List(context.TODO(), dnses, kclient.InNamespace(r.Namespace)); err != nil {
+	if err := r.kclient.List(context.TODO(), dnses, kclient.InNamespace(r.Namespace)); err != nil {
 		return false, fmt.Errorf("failed to list externaldnses: %v", err)
 	}
 
@@ -336,7 +339,7 @@ func (r *reconciler) enforceEffectiveZoneFilter(edns *operatorv1.ExternalDNS, dn
 	default:
 		updated.Spec.Provider.ZoneFilter = []*configv1.DNSZone{dnsConfig.Spec.PrivateZone}
 	}
-	if err := r.client.Update(context.TODO(), updated); err != nil {
+	if err := r.kclient.Update(context.TODO(), updated); err != nil {
 		return fmt.Errorf("failed to update externaldns %s/%s: %v", updated.Namespace, updated.Name, err)
 	}
 
@@ -361,7 +364,7 @@ func (r *reconciler) enforceEffectiveProvider(edns *operatorv1.ExternalDNS, infr
 	default:
 		updated.Status.ProviderType = providerTypeForInfra(infraConfig)
 	}
-	if err := r.client.Status().Update(context.TODO(), updated); err != nil {
+	if err := r.kclient.Status().Update(context.TODO(), updated); err != nil {
 		return fmt.Errorf("failed to update status of externaldns %s/%s: %v", updated.Namespace, updated.Name, err)
 	}
 
@@ -381,7 +384,7 @@ func IsStatusProviderSet(edns *operatorv1.ExternalDNS) bool {
 func (r *reconciler) enforceExternalDNSFinalizer(edns *operatorv1.ExternalDNS) error {
 	if !slice.ContainsString(edns.Finalizers, ExternalDNSControllerFinalizer) {
 		edns.Finalizers = append(edns.Finalizers, ExternalDNSControllerFinalizer)
-		if err := r.client.Update(context.TODO(), edns); err != nil {
+		if err := r.kclient.Update(context.TODO(), edns); err != nil {
 			return err
 		}
 		logrus.Infof("enforced finalizer for externaldns: %s", edns.Name)
@@ -395,7 +398,7 @@ func (r *reconciler) removeExternalDNSFinalizer(edns *operatorv1.ExternalDNS) er
 	if slice.ContainsString(edns.Finalizers, ExternalDNSControllerFinalizer) {
 		updated := edns.DeepCopy()
 		updated.Finalizers = slice.RemoveString(updated.Finalizers, ExternalDNSControllerFinalizer)
-		if err := r.client.Update(context.TODO(), updated); err != nil {
+		if err := r.kclient.Update(context.TODO(), updated); err != nil {
 			return err
 		}
 	}

@@ -12,6 +12,10 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 
+	operatorv1 "github.com/danehans/api/operator/v1"
+
+	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -19,6 +23,13 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+)
+
+const (
+	// cloudCredentialsSecretName is the name of the secret in the
+	// operator's namespace that will hold the credentials that the operator
+	// will use to authenticate with the cloud API.
+	cloudCredentialsSecretName = "cloud-credentials"
 )
 
 func main() {
@@ -60,14 +71,28 @@ func main() {
 		logrus.Fatalf("failed to get dns 'cluster': %v", err)
 	}
 
+	creds := &corev1.Secret{}
+	var provider operatorv1.ProviderType
+	switch infraConfig.Status.Platform {
+	case configv1.AWSPlatformType:
+		// Get Operand creds
+		err := kubeClient.Get(context.TODO(), types.NamespacedName{Namespace: operatorNamespace, Name: cloudCredentialsSecretName}, creds)
+		if err != nil {
+			logrus.Fatalf("failed to get aws credentials from secret %q: %v", cloudCredentialsSecretName, err)
+		}
+		provider = operatorv1.AWSProvider
+	}
+
 	operatorConfig := operatorconfig.Config{
 		OperatorReleaseVersion: releaseVersion,
 		Namespace:              operatorNamespace,
 		ExternalDNSImage:       externalDNSImage,
+		Credentials:            creds,
+		Provider:               provider,
 	}
 
 	// Set up and start the operator.
-	op, err := operator.New(operatorConfig, kubeConfig)
+	op, err := operator.New(operatorConfig, kubeConfig, dnsConfig)
 	if err != nil {
 		logrus.Fatalf("failed to create operator: %v", err)
 	}
