@@ -45,6 +45,10 @@ required = [
   name = "sigs.k8s.io/controller-runtime"
   revision = "0d6f672f4bf2f096fedb507f6b0bd94da62ae70f"
 
+[[constraint]]
+  name = "github.com/aws/aws-sdk-go"
+  version = "=v1.15.72"
+
 # codegen
 [[constraint]]
   name = "github.com/kevinburke/go-bindata"
